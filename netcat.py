@@ -57,8 +57,8 @@ fs = sub.add_parser("filesend")
 
 gg = fs.add_mutually_exclusive_group(required=True)
 
-gg.add_argument("-s", "--sender")
-gg.add_argument("-r", "--receiver")
+gg.add_argument("-s", "--sender", action="store_true")
+gg.add_argument("-r", "--receiver", action="store_true")
 
 fs.add_argument("-ip", "--ipaddress")
 fs.add_argument("-p", "--port", type=int, required=True)
