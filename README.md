@@ -37,12 +37,12 @@ Start Chat Server
 python netcat.py chat -s -ip {IP} -p {PORT}
 
 With password:
-python netcat.py chat -s -ip {IP} -p {PORT} -pp {PASSWORD}
+python netcat.py chat -s -ip {IP} -p {PORT} -pp
 
 Connect to Chat Server
 python netcat.py chat -c -ip {IP} -p {PORT}
 With password:
-python netcat.py chat -c -ip {IP} -p {PORT} -pp {PASSWORD}
+python netcat.py chat -c -ip {IP} -p {PORT} -pp
 
 
 🔍 Port Scanning
