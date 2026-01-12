@@ -10,6 +10,7 @@ import shutil
 import base64
 import ipaddress
 import threading
+import hashlib
 from pathlib import Path
 from rich.console import Console
 from rich import traceback
@@ -72,9 +73,20 @@ def scan_port(ip, port):
 		c.print(f"[bold green][ [bold cyan]{ip} [bold green]] Status:\t[bold cyan]Filtered \t\t[bold green]Port:\t[bold cyan]{port}")
 	s.close()
 
+def hashpass(password):
+	hashed = hashlib.sha512(password.encode("utf-8")).hexdigest()
+	return hashed
+
 if args.cmd == "chat":
 	serv = FileHistory("chat_passwords.txt")
-	IP = args.ipaddress
+	if args.server:
+		if args.ipaddress:
+			IP = args.ipaddress
+		else:
+			IP = "0.0.0.0"
+	else:
+		IP = args.ipaddress
+
 	style = Style.from_dict({"info": "bold cyan",
 "regular": "bold green"})
 	PORT = args.port
@@ -93,6 +105,7 @@ if args.cmd == "chat":
 
 		if args.putpassword:
 			password = toolkit.prompt([("class:regular","Enter "), ("class:regular", "Chat's"), ("class:regular", "password:    ")] is_password=True, style=style, history=serv)
+			password = hashpass(password)
 		else:
 			password = None
 
@@ -114,10 +127,13 @@ if args.cmd == "chat":
 			length += b' ' * (HEADER - len(length))
 			for client in clients:
 				if client != sender_conn:
-					client.sendall(name_length)
-					client.sendall(name)
-					client.sendall(length)
-					client.sendall(msg)
+					try:
+						client.sendall(name_length)
+						client.sendall(name)
+						client.sendall(length)
+						client.sendall(msg)
+					except:
+						c.print(f"[red]Failed to send data to {client}")
 
 		def handle(conn, addr, n):
 			clients.append(conn)
@@ -145,39 +161,59 @@ if args.cmd == "chat":
 			server.listen()
 			print("[ + ] server is listening..")
 			while True:
-				conn, addr = server.accept()
-				n_length = conn.recv(NAME).decode("utf-8").strip()
-				n_length = int(n_length)
-				n = recv_all(conn, n_length).decode("utf-8")
-				if password:
-					pass_msg = "PASSWORD:\t".encode()
-					passed_length = str(len(pass_msg)).encode("utf-8")
-					passed_length += b' ' * (PASS - len(passed_length))
-					conn.send(passed_length)
-					conn.sendall(pass_msg)
-					pass_length = conn.recv(PASS).decode("utf-8").strip()
-					pass_length = int(pass_length)
-					sent_password = recv_all(conn, pass_length)
-					if sent_password.decode("utf-8") == password:
-						threading.Thread(target=handle, args=(conn, addr, n)).start()
+				try:
+					conn, addr = server.accept()
+					try:
+						n_length = conn.recv(NAME).decode("utf-8").strip()
+						n_length = int(n_length)
+						n = recv_all(conn, n_length).decode("utf-8")
+					except:
+						c.print(f"[red]Something went wrong while receiving client {addr} name!")
+					if password:
+						pass_msg = "PASSWORD:\t".encode()
+						passed_length = str(len(pass_msg)).encode("utf-8")
+						passed_length += b' ' * (PASS - len(passed_length))
+						try:
+							conn.send(passed_length)
+							conn.sendall(pass_msg)
+						except:
+							c.print(f"[red]Something went wrong while sending password data to {addr}!")
+						pass_length = conn.recv(PASS).decode("utf-8").strip()
+						pass_length = int(pass_length)
+						try:
+							sent_password = recv_all(conn, pass_length)
+							sent_password = sent_password.decode("utf-8")
+							if hashpass(sent_password) == password:
+								threading.Thread(target=handle, args=(conn, addr, n)).start()
+							else:
+								conn.close()
+						except:
+							c.print(f"[red]Something went wrong while receiving password data from client {addr}")
 					else:
-						conn.close()
-				else:
-					threading.Thread(target=handle, args=(conn, addr, n)).start()
+						threading.Thread(target=handle, args=(conn, addr, n)).start()
+				except Exception:
+					pass
 
 		print("[ + ] Server is starting...")
 		start()
 
 	if args.client:
 		client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		client.connect(ADDR)
+		try:
+			client.connect(ADDR)
+		except:
+			c.print("[bold red]Something went wrong in connection!")
+			
 		name = c.input("[bold green]Enter Your Name:\t")
 
 		name_enc = name.encode("utf-8")
 		name_length = str(len(name_enc)).encode("utf-8")
 		name_length += b' ' * (NAME - len(name_length))
-		client.send(name_length)
-		client.send(name_enc)
+		try:
+			client.send(name_length)
+			client.send(name_enc)
+		except:
+			c.print("[red]Something went wrong while sending data!")
 
 		if args.putpassword:
 			length = client.recv(PASS).decode("utf-8").strip()
@@ -187,8 +223,11 @@ if args.cmd == "chat":
 			password = password.encode("utf-8")
 			length = str(len(password)).encode("utf-8")
 			length += b' ' * (PASS - len(length))
-			client.sendall(length)
-			client.sendall(password)
+			try:
+				client.sendall(length)
+				client.sendall(password)
+			except:
+				c.print("[red]Something went wrong while sending data!")
 
 		def recv_all(conn, length):
 			data = b''
@@ -203,8 +242,11 @@ if args.cmd == "chat":
 			msg = msg.encode("utf-8")
 			length = str(len(msg)).encode("utf-8")
 			length += b' ' * (HEADER - len(length))
-			client.sendall(length)
-			client.sendall(msg)
+			try:
+				client.sendall(length)
+				client.sendall(msg)
+			except:
+				c.print("[red]Something went wrong while sending data!")
 
 		def receive():
 			while True:
@@ -308,8 +350,10 @@ if args.cmd == "filesend":
 
 	if args.receiver:
 		client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		client.connect(ADDR)
-
+		try:
+			client.connect(ADDR)
+		except:
+			c.print("[bold red]Something went wrong in connection!")
 		receive_file = Path("/sdcard/received/NetCat Files").resolve()
 		receive_dir = Path("/sdcard/received/NetCat Directory").resolve()
 
