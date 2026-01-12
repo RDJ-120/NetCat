@@ -13,6 +13,10 @@ import threading
 from pathlib import Path
 from rich.console import Console
 from rich import traceback
+import prompt_toolkit as toolkit
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.styles import Style
+from prompt_toolkit.completion import WordCompleter
 
 traceback.install()
 
@@ -69,8 +73,10 @@ def scan_port(ip, port):
 	s.close()
 
 if args.cmd == "chat":
-
+	serv = FileHistory("chat_passwords.txt")
 	IP = args.ipaddress
+	style = Style.from_dict({"info": "bold cyan",
+"regular": "bold green"})
 	PORT = args.port
 	ADDR = (IP, PORT)
 	NAME = 32
@@ -86,7 +92,7 @@ if args.cmd == "chat":
 		names = []
 
 		if args.putpassword:
-			password = input("Enter The Password:\t")
+			password = toolkit.prompt([("class:regular","Enter "), ("class:regular", "Chat's"), ("class:regular", "password:    ")] is_password=True, style=style, history=serv)
 		else:
 			password = None
 
@@ -177,7 +183,7 @@ if args.cmd == "chat":
 			length = client.recv(PASS).decode("utf-8").strip()
 			length = int(length)
 			message = client.recv(length).decode("utf-8")
-			password = c.input(f"[bold green]{message}")
+			password = toolkit.prompt([("class:regular",message)] is_password=True, style=style, history=serv)
 			password = password.encode("utf-8")
 			length = str(len(password)).encode("utf-8")
 			length += b' ' * (PASS - len(length))
