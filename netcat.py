@@ -198,13 +198,19 @@ if args.cmd == "chat":
 		start()
 
 	if args.client:
+		names = FileHistory("names.txt")
 		client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		try:
 			client.connect(ADDR)
 		except:
 			c.print("[bold red]Something went wrong in connection!")
 			
-		name = c.input("[bold green]Enter Your Name:\t")
+		name = toolkit.prompt(
+		[("class:regular", "Enter "),
+		 ("class:regular", "Your "),
+		 ("class:regular", "Name:    ")],
+		  style=style,
+		  history=names)
 
 		name_enc = name.encode("utf-8")
 		name_length = str(len(name_enc)).encode("utf-8")
@@ -355,6 +361,7 @@ if args.cmd == "filesend":
 		except:
 			c.print("[bold red]Something went wrong in connection!")
 		receive_file = Path("/sdcard/received/NetCat Files").resolve()
+		
 		receive_dir = Path("/sdcard/received/NetCat Directory").resolve()
 
 		if not receive_dir.exists():
