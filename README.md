@@ -1,23 +1,20 @@
-# Python NetCat Tool
+# 🐍 Python NetCat Tool
 
-Educational NetCat-like tool written in Python for learning networking concepts and socket programming.
-
-This tool can:
-
-- Create chat server with or without password
-- Connect to other chat servers
-- Scan open ports on IPs and networks
-- Send and receive files and directories
+Educational NetCat-like tool written in Python for learning networking, sockets, and basic cybersecurity concepts.  
+Works on Linux and Termux (Android).
 
 ---
 
-## ✨ Features
+## 📌 Features
 
-- 🔐 Password protected chat
-- 💬 Client / Server chat mode
-- 🔍 Port scanning (single IP or whole network)
-- 📁 File and directory transfer
-- ⚡ Built using Python sockets
+This tool can:
+
+- 💬 Create chat server (with or without password)
+- 👥 Connect multiple chat clients at the same time
+- 🔍 Scan open ports on IPs or full networks
+- 📁 Send and receive files and directories
+- 🖥️ Remote command execution (execute mode)
+- ⚡ Multi-threaded server handling
 
 ---
 
@@ -25,39 +22,86 @@ This tool can:
 
 - Python 3.x
 
-If you use external libraries:
-pip install -r requirements.txt
+External libraries used:
+rich
+prompt_toolkit
+
+Install them using:
+
+```bash
+pip install rich prompt_toolkit
 ▶️ Usage
-
-All commands are run using:
+All commands:
+Bash
 python netcat.py [mode] [options]
-
+Available modes:
+chat
+scan
+filesend
+execute
 💬 Chat Mode
 Start Chat Server
-python netcat.py chat -s -ip {IP} -p {PORT}
-
+Bash
+python netcat.py chat -s -ip 0.0.0.0 -p 5555
 With password:
-python netcat.py chat -s -ip {IP} -p {PORT} -pp
-
+Bash
+python netcat.py chat -s -ip 0.0.0.0 -p 5555 -pp
 Connect to Chat Server
-python netcat.py chat -c -ip {IP} -p {PORT}
+Bash
+python netcat.py chat -c -ip SERVER_IP -p 5555
 With password:
-python netcat.py chat -c -ip {IP} -p {PORT} -pp
-
-
+Bash
+python netcat.py chat -c -ip SERVER_IP -p 5555 -pp
+Chat Commands
+!DISCONNECT → exit from chat server
 🔍 Port Scanning
-Scan Full Network
-
-python netcat.py scan --all -ip 192.168.1.0/24
-
 Scan Single IP
-python netcat.py scan -ip {IP}
+Bash
+python netcat.py scan -ip 192.168.1.1
+Scan Full Network
+Bash
+python netcat.py scan --all -ip 192.168.1.0/24
+Features:
+Multi-threaded scanning
+Shows open and filtered ports
+📁 File Transfer Mode
+Send File or Directory (Sender)
+Bash
+python netcat.py filesend -s -ip 0.0.0.0 -p 4444
+Then enter file or folder path.
+If directory is selected:
+It will be zipped
+Sent
+Then extracted automatically on receiver
+Receive File (Receiver)
+Bash
+python netcat.py filesend -r -ip SENDER_IP -p 4444
+Files will be saved to:
+/sdcard/received/NetCat Files
+/sdcard/received/NetCat Directory
+🖥️ Execute Mode (Remote Command Execution)
+Allows executing shell commands remotely.
+⚠️ For educational purposes only.
+Start Execute Server
+Bash
+python netcat.py execute -s 0.0.0.0 -p 9999
+Connect as Client
+Bash
+python netcat.py execute -c SERVER_IP -p 9999
+Then you can run commands like:
 
-📁 File Transfer
-Send File or Directory (Server)
-python netcat.py filesend -s -ip {IP} -p {PORT}
-The sender waits for one client to connect.
+ls
+pwd
+cd /sdcard
+whoami
 
-Receive File (Client)
-- python netcat.py filesend -r -ip {IP} -p {PORT}
-Connects to sender and receives files
+Download File from Server
+Command:
+take filename.txt
+The file will be saved to:
+/sdcard/executed/
+
+⚠️ Important Notes
+This tool is for learning and testing only.
+Do NOT use on networks or devices you do not own or have permission to test.
+Some features may require storage permission on Android.
