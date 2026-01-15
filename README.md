@@ -30,64 +30,79 @@ Install them using:
 
 ```bash
 pip install rich prompt_toolkit
+```
 ▶️ Usage
 All commands:
-Bash
+```bash
 python netcat.py [mode] [options]
+```
 Available modes:
 chat
 scan
 filesend
 execute
 💬 Chat Mode
+
 Start Chat Server
-Bash
+```Bash
 python netcat.py chat -s -ip 0.0.0.0 -p 5555
+```
 With password:
-Bash
+```Bash
 python netcat.py chat -s -ip 0.0.0.0 -p 5555 -pp
+```
 Connect to Chat Server
-Bash
+```Bash
 python netcat.py chat -c -ip SERVER_IP -p 5555
+```
 With password:
-Bash
+```Bash
 python netcat.py chat -c -ip SERVER_IP -p 5555 -pp
+```
 Chat Commands
 !DISCONNECT → exit from chat server
 🔍 Port Scanning
 Scan Single IP
-Bash
+```Bash
 python netcat.py scan -ip 192.168.1.1
+```
 Scan Full Network
-Bash
+```Bash
 python netcat.py scan --all -ip 192.168.1.0/24
+```
 Features:
 Multi-threaded scanning
 Shows open and filtered ports
+
 📁 File Transfer Mode
 Send File or Directory (Sender)
-Bash
+```Bash
 python netcat.py filesend -s -ip 0.0.0.0 -p 4444
+```
 Then enter file or folder path.
 If directory is selected:
 It will be zipped
 Sent
 Then extracted automatically on receiver
 Receive File (Receiver)
-Bash
+```Bash
 python netcat.py filesend -r -ip SENDER_IP -p 4444
+```
 Files will be saved to:
 /sdcard/received/NetCat Files
 /sdcard/received/NetCat Directory
+
 🖥️ Execute Mode (Remote Command Execution)
 Allows executing shell commands remotely.
 ⚠️ For educational purposes only.
 Start Execute Server
-Bash
+```Bash
 python netcat.py execute -s 0.0.0.0 -p 9999
+```
 Connect as Client
-Bash
+```Bash
 python netcat.py execute -c SERVER_IP -p 9999
+```
 Then you can run commands like:
 
 ls
