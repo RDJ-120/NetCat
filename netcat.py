@@ -10,6 +10,7 @@ import shutil
 import base64
 import ipaddress
 import threading
+import platform
 import hashlib
 from pathlib import Path
 from rich.console import Console
@@ -18,6 +19,26 @@ import prompt_toolkit as toolkit
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
 from prompt_toolkit.completion import WordCompleter
+
+
+def cwd():
+    system = platform.system()
+    if system == "Linux":
+        if "ANDROID_ROOT" in os.environ or "TERMUX_VERSION" in os.environ:
+            return Path("/sdcard")
+        else:
+            return Path.home() / "Desktop"
+
+    elif system == "Windows":
+        return Path(os.path.join(os.environ["USERPROFILE"], "Desktop"))
+
+    elif system == "Darwin":
+        return Path.home() / "Desktop"
+
+    else:
+        return Path.cwd()
+
+fullpath = cwd()
 
 traceback.install()
 
@@ -49,6 +70,14 @@ gg.add_argument("-r", "--receiver", action="store_true")
 
 fs.add_argument("-ip", "--ipaddress")
 fs.add_argument("-p", "--port", type=int, required=True)
+
+def enc(msg):
+	msg = base64.b64encode(msg)
+	return msg
+
+def dec(msg):
+	msg = base64.b64decode(msg)
+	return msg
 
 execute = sub.add_parser("execute")
 
@@ -181,7 +210,7 @@ if args.cmd == "chat":
 						pass_length = int(pass_length)
 						try:
 							sent_password = recv_all(conn, pass_length)
-							sent_password = sent_password.decode("utf-8")
+							sent_password = dec(sent_password).decode("utf-8")
 							if hashpass(sent_password) == password:
 								threading.Thread(target=handle, args=(conn, addr, n)).start()
 							else:
@@ -226,6 +255,7 @@ if args.cmd == "chat":
 			message = client.recv(length).decode("utf-8")
 			password = toolkit.prompt([("class:regular",message)], is_password=True, style=style, history=serv)
 			password = password.encode("utf-8")
+			password = enc(password)
 			length = str(len(password)).encode("utf-8")
 			length += b' ' * (PASS - len(length))
 			try:
@@ -245,6 +275,7 @@ if args.cmd == "chat":
 
 		def send(msg):
 			msg = msg.encode("utf-8")
+			msg = enc(msg)
 			length = str(len(msg)).encode("utf-8")
 			length += b' ' * (HEADER - len(length))
 			try:
@@ -263,7 +294,8 @@ if args.cmd == "chat":
 				if not length:
 					break
 				length = int(length)
-				msg = recv_all(client, length).decode("utf-8")
+				msg = recv_all(client, length)
+				msg = dec(msg).decode("utf-8")
 				print(f"[{name}]:\t{msg}")
 
 		threading.Thread(target=receive, daemon=True).start()
@@ -323,13 +355,16 @@ def sendfile(filepath, ADDR):
 	size_bytes = str(size).encode("utf-8")
 	size_bytes += b' ' * (128 - len(size_bytes))
 	conn.sendall(size_bytes)
-	with open(filepath, "rb") as f:
-		while True:
-			data = f.read(4096)
-			if not data:
-				break
-			conn.sendall(data)
-	c.print(f'[bold green][ [bold cyan]+ [bold green]] File [bold cyan]{filepath} [bold green] Sent Successfully!')
+	try:
+		with open(filepath, "rb") as f:
+			while True:
+				data = f.read(4096)
+				if not data:
+					break
+				conn.sendall(data)
+		c.print(f'[bold green][ [bold cyan]+ [bold green]] File [bold cyan]{filepath} [bold green] Sent Successfully!')
+	except Exception:
+		c.print("[red]Something went wrong..!")
 	conn.close()
 	s.close()
 
@@ -359,9 +394,9 @@ if args.cmd == "filesend":
 			client.connect(ADDR)
 		except:
 			c.print("[bold red]Something went wrong in connection!")
-		receive_file = Path("/sdcard/received/NetCat Files").resolve()
+		receive_file = (fullpath / "received" / "NetCat Files").resolve()
 		
-		receive_dir = Path("/sdcard/received/NetCat Directory").resolve()
+		receive_dir = (fullpath / "received" / "NetCat Dirs").resolve()
 
 		if not receive_dir.exists():
 			receive_dir.mkdir(parents=True)
@@ -399,32 +434,31 @@ if args.cmd == "filesend":
 		c.print(f'[bold green][ [bold cyan]+ [bold green]] File [bold cyan]{name} [bold green] Received Successfully!')
 
 def recv_all(conn, length):
-	data = b''
-	while len(data) < int(length):
-		packet = conn.recv(int(length) - len(data))
-		if not packet:
-			break
-		data += packet
-	return data
+    data = b''
+    while len(data) < int(length):
+        packet = conn.recv(int(length) - len(data))
+        if not packet:
+            break
+        data += packet
+    return data
 
 
-def sendf(filepath, conn):
-	size = filepath.stat().st_size
-	size_bytes = str(size).encode("utf-8")
-	size_bytes += b' ' * (128 - len(size_bytes))
-	conn.sendall(size_bytes)
-	with open(filepath, "rb") as f:
-		while True:
-			data = f.read(4096)
-			if not data:
-				break
-			conn.sendall(data)
+def send_file(filepath, conn):
+    size = filepath.stat().st_size
+    size_bytes = str(size).encode().ljust(128)
+    conn.sendall(size_bytes)
+    with open(filepath, "rb") as f:
+        while True:
+            data = f.read(4096)
+            if not data:
+                break
+            conn.sendall(data)
+
 
 def executer(cmd):
     cmd = cmd.strip()
     if not cmd:
         return ""
-
     if cmd.startswith("cd "):
         path = cmd[3:].strip()
         try:
@@ -434,83 +468,110 @@ def executer(cmd):
             return f"[ - ] cd error: {e}"
     if cmd == "cd":
         return os.getcwd()
-
     try:
         output = subprocess.getoutput(cmd)
         return output
     except Exception as e:
         return str(e)
 
+
 def client_execute(ip, port):
-	HEADER = 4096
-	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	try:
-		s.connect((ip, port))
-	except:
-		c.print("[red]Something went wrong")
-	while True:
-		cmd = input(">> ").encode("utf-8")
-		pure = cmd.decode("utf-8")
-		length = str(len(cmd)).encode("utf-8")
-		length += b' '*(HEADER-len(length))
-		s.sendall(length)
-		s.sendall(cmd)
-		if not pure.startswith("take "):
-			leng = s.recv(HEADER).decode("utf-8").strip()
-			full = recv_all(s, leng)
-			print(full.decode("utf-8"))
-		else:
-			dire = Path("/sdcard/executed")
-			dire.mkdir(parents=True, exist_ok=True)
-			file = Path(cmd[4:].decode("utf-8").strip())
-			full = dire.joinpath(file)
-			size = s.recv(128).decode("utf-8").strip()
-			size = int(size)
-			received = 0
-			with open(full, "wb") as f:
-				while size > received:
-					data = s.recv(HEADER)
-					f.write(data)
-					received += len(data)
+    HEADER = 4096
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((ip, port))
+
+    while True:
+        cmd = input(">> ").encode("utf-8")
+        pure = cmd.decode("utf-8")
+        length = str(len(cmd)).encode().ljust(HEADER)
+        s.sendall(length)
+        s.sendall(cmd)
+
+        if pure.startswith("upload "):
+            file = Path(pure[7:].strip())
+            if file.exists():
+                send_file(file, s)
+            else:
+                print("File not found")
+
+        elif pure.startswith("take "):
+            dire = fullpath / "executed"
+            dire.mkdir(parents=True, exist_ok=True)
+            file = Path(pure[5:].strip()).name
+            full = dire / file
+            size = int(s.recv(128).decode().strip())
+            received = 0
+            with open(full, "wb") as f:
+                while received < size:
+                    data = s.recv(HEADER)
+                    if not data:
+                        break
+                    f.write(data)
+                    received += len(data)
+            print(f"Saved: {full}")
+
+        else:
+            leng = int(s.recv(HEADER).decode().strip())
+            full = recv_all(s, leng)
+            print(full.decode("utf-8"))
+
 
 def server_execute(port):
-	HEADER = 4096
-	IP = "0.0.0.0"
-	PORT = port
-	ADDR = (IP, PORT)
-	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	s.bind(ADDR)
-	s.listen(5)
+    HEADER = 4096
+    IP = "0.0.0.0"
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind((IP, port))
+    s.listen(5)
 
-	def handle_client(conn, addr):
-		try:
-			while True:
-				length = conn.recv(HEADER).decode("utf-8").strip()
-				if not length:
-					break
-				cmd = recv_all(conn, int(length)).decode("utf-8")
-				if not cmd.startswith("take "):
-					final = executer(cmd).encode("utf-8")
-					leng = str(len(final)).encode("utf-8")
-					leng += b' '*(HEADER-len(leng))
-					conn.sendall(leng)
-					conn.sendall(final)
-				else:
-					file = Path(cmd[4:].strip())
-					sendf(file, conn)
-		except:
-			pass
-		finally:
-			conn.close()
+    def handle_client(conn, addr):
+        try:
+            while True:
+                length = conn.recv(HEADER).decode().strip()
+                if not length:
+                    break
+                cmd = recv_all(conn, int(length)).decode()
 
-	while True:
-		conn, addr = s.accept()
-		threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
+                if cmd.startswith("upload "):
+                    filename = Path(cmd[7:].strip()).name
+                    file = cwd() / filename
+                    size = int(conn.recv(128).decode().strip())
+                    received = 0
+                    with open(file, "wb") as f:
+                        while received < size:
+                            data = conn.recv(4096)
+                            if not data:
+                                break
+                            f.write(data)
+                            received += len(data)
 
+                elif cmd.startswith("take "):
+                    file = Path(cmd[5:].strip())
+                    if file.exists():
+                        send_file(file, conn)
+                    else:
+                        conn.sendall(str(0).encode().ljust(128))
+
+                else:
+                    final = executer(cmd).encode()
+                    leng = str(len(final)).encode().ljust(HEADER)
+                    conn.sendall(leng)
+                    conn.sendall(final)
+        finally:
+            conn.close()
+
+    while True:
+        conn, addr = s.accept()
+        threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
+  
+  
+  
 if args.cmd == "execute":
-	IP = args.ip
-	PORT = args.port
-	if args.server:
-		server_execute(PORT)
-	if args.client:
-		client_execute(IP, PORT)
+    IP = args.ip
+    PORT = args.port
+
+    if args.server:
+        server_execute(PORT)
+
+    elif args.client:
+        c.print(f"[ + ] Connecting to {IP}:{PORT}")
+        client_execute(IP, PORT)
