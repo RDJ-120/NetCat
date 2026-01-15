@@ -23,17 +23,6 @@ traceback.install()
 
 c = Console()
 
-def execute(cmd):
-	cmd = cmd.strip()
-	if not cmd:
-		return
-	cmd = shlex.split(cmd)
-	try:
-		output = subprocess.check_output(cmd, stderr=subprocess.stdout)
-		return output.decode("utf-8")
-	except Exception as e:
-		return str(e)
-
 parser = argparse.ArgumentParser(description="NetCat Like Tool")
 
 sub = parser.add_subparsers(dest="cmd", required=True)
@@ -60,6 +49,16 @@ gg.add_argument("-r", "--receiver", action="store_true")
 
 fs.add_argument("-ip", "--ipaddress")
 fs.add_argument("-p", "--port", type=int, required=True)
+
+execute = sub.add_parser("execute")
+
+ggg = execute.add_mutually_exclusive_group(required=True)
+
+ggg.add_argument("-s", "--server", action="store_true")
+ggg.add_argument("-c", "--client", action="store_true")
+
+execute.add_argument("ip", type=str)
+execute.add_argument("-p", "--port", type=int)
 
 args = parser.parse_args()
 
@@ -104,7 +103,7 @@ if args.cmd == "chat":
 		names = []
 
 		if args.putpassword:
-			password = toolkit.prompt([("class:regular","Enter "), ("class:regular", "Chat's"), ("class:regular", "password:    ")] is_password=True, style=style, history=serv)
+			password = toolkit.prompt([("class:regular","Enter "), ("class:regular", "Chat's"), ("class:regular", "password:    ")], is_password=True, style=style, history=serv)
 			password = hashpass(password)
 		else:
 			password = None
@@ -225,7 +224,7 @@ if args.cmd == "chat":
 			length = client.recv(PASS).decode("utf-8").strip()
 			length = int(length)
 			message = client.recv(length).decode("utf-8")
-			password = toolkit.prompt([("class:regular",message)] is_password=True, style=style, history=serv)
+			password = toolkit.prompt([("class:regular",message)], is_password=True, style=style, history=serv)
 			password = password.encode("utf-8")
 			length = str(len(password)).encode("utf-8")
 			length += b' ' * (PASS - len(length))
@@ -398,3 +397,120 @@ if args.cmd == "filesend":
 			name.unlink()
 
 		c.print(f'[bold green][ [bold cyan]+ [bold green]] File [bold cyan]{name} [bold green] Received Successfully!')
+
+def recv_all(conn, length):
+	data = b''
+	while len(data) < int(length):
+		packet = conn.recv(int(length) - len(data))
+		if not packet:
+			break
+		data += packet
+	return data
+
+
+def sendf(filepath, conn):
+	size = filepath.stat().st_size
+	size_bytes = str(size).encode("utf-8")
+	size_bytes += b' ' * (128 - len(size_bytes))
+	conn.sendall(size_bytes)
+	with open(filepath, "rb") as f:
+		while True:
+			data = f.read(4096)
+			if not data:
+				break
+			conn.sendall(data)
+
+def executer(cmd):
+    cmd = cmd.strip()
+    if not cmd:
+        return ""
+
+    if cmd.startswith("cd "):
+        path = cmd[3:].strip()
+        try:
+            os.chdir(path)
+            return f"[ + ] Directory changed to: {os.getcwd()}"
+        except Exception as e:
+            return f"[ - ] cd error: {e}"
+    if cmd == "cd":
+        return os.getcwd()
+
+    try:
+        output = subprocess.getoutput(cmd)
+        return output
+    except Exception as e:
+        return str(e)
+
+def client_execute(ip, port):
+	HEADER = 4096
+	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	try:
+		s.connect((ip, port))
+	except:
+		c.print("[red]Something went wrong")
+	while True:
+		cmd = input(">> ").encode("utf-8")
+		pure = cmd.decode("utf-8")
+		length = str(len(cmd)).encode("utf-8")
+		length += b' '*(HEADER-len(length))
+		s.sendall(length)
+		s.sendall(cmd)
+		if not pure.startswith("take "):
+			leng = s.recv(HEADER).decode("utf-8").strip()
+			full = recv_all(s, leng)
+			print(full.decode("utf-8"))
+		else:
+			dire = Path("/sdcard/executed")
+			dire.mkdir(parents=True, exist_ok=True)
+			file = Path(cmd[4:].decode("utf-8").strip())
+			full = dire.joinpath(file)
+			size = s.recv(128).decode("utf-8").strip()
+			size = int(size)
+			received = 0
+			with open(full, "wb") as f:
+				while size > received:
+					data = s.recv(HEADER)
+					f.write(data)
+					received += len(data)
+
+def server_execute(port):
+	HEADER = 4096
+	IP = "0.0.0.0"
+	PORT = port
+	ADDR = (IP, PORT)
+	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	s.bind(ADDR)
+	s.listen(5)
+
+	def handle_client(conn, addr):
+		try:
+			while True:
+				length = conn.recv(HEADER).decode("utf-8").strip()
+				if not length:
+					break
+				cmd = recv_all(conn, int(length)).decode("utf-8")
+				if not cmd.startswith("take "):
+					final = executer(cmd).encode("utf-8")
+					leng = str(len(final)).encode("utf-8")
+					leng += b' '*(HEADER-len(leng))
+					conn.sendall(leng)
+					conn.sendall(final)
+				else:
+					file = Path(cmd[4:].strip())
+					sendf(file, conn)
+		except:
+			pass
+		finally:
+			conn.close()
+
+	while True:
+		conn, addr = s.accept()
+		threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
+
+if args.cmd == "execute":
+	IP = args.ip
+	PORT = args.port
+	if args.server:
+		server_execute(PORT)
+	if args.client:
+		client_execute(IP, PORT)
