@@ -29,7 +29,7 @@ prompt_toolkit
 Install them using:
 
 ```bash
-pip install rich prompt_toolkit
+pip install -r requirements.txt
 ```
 ▶️ Usage
 All commands:
@@ -89,8 +89,8 @@ Receive File (Receiver)
 python netcat.py filesend -r -ip SENDER_IP -p 4444
 ```
 Files will be saved to:
-/sdcard/received/NetCat Files
-/sdcard/received/NetCat Directory
+/{home}/received/NetCat Files
+/{home}/received/NetCat Directory
 
 🖥️ Execute Mode (Remote Command Execution)
 Allows executing shell commands remotely.
@@ -104,17 +104,25 @@ Connect as Client
 python netcat.py execute -c SERVER_IP -p 9999
 ```
 Then you can run commands like:
-
+```Bash
 ls
 pwd
 cd /sdcard
 whoami
-
+```
 Download File from Server
 Command:
+```Bash
 take filename.txt
+```
 The file will be saved to:
-/sdcard/executed/
+/{home}/executed/
+
+```Bash
+upload filename.txt
+```
+The file will be uploaded to the executed device and saved to home path
+
 
 ⚠️ Important Notes
 This tool is for learning and testing only.
