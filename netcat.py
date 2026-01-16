@@ -150,7 +150,8 @@ if args.cmd == "chat":
 			msg = msg.encode("utf-8")
 			name = name.encode("utf-8")
 			name_length = str(len(name)).encode().ljust(NAME)
-			msg_length = str(len(msg)).encode().ljust(HEADER)
+			msg_length = str(len(msg)).encode("utf-8")
+			msg_length += b' '*(HEADER-len(msg_length))
 			for client in clients:
 			   if client != sender_conn:
 			     try:
@@ -172,14 +173,18 @@ if args.cmd == "chat":
 				length = conn.recv(HEADER).decode("utf-8").strip()
 				if not length:
 					break
-				length = int(length)
-				msg = recv_all(conn, length)
-				msg = msg.decode("utf-8")
-				if msg.endswith(DISCONNECT):
-					connected = False
-				else:
-					print(f"[{name}]:\t{msg}")
-					broadcast(name, msg, conn)
+				try:
+					length = int(length)
+					msg = recv_all(conn, length)
+					msg = msg.decode("utf-8")
+					if msg.endswith(DISCONNECT):
+						connected = False
+					else:
+						print(f"[{name}]:\t{msg}")
+						broadcast(name, msg, conn)
+				except ValueError:
+					print(f"[{name}]:	{length}")
+					broadcast(name, length, conn)
 			clients.remove(conn)
 			conn.close()
 			print(f"[ ! ] {n} Exited The Server..")
