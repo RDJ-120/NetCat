@@ -486,7 +486,8 @@ def client_execute(ip, port):
     while True:
         cmd = input(">> ").encode("utf-8")
         pure = cmd.decode("utf-8")
-        length = str(len(cmd)).encode().ljust(HEADER)
+        length = str(len(cmd)).encode()
+        length += b' '*(HEADER-len(length))
         s.sendall(length)
         s.sendall(cmd)
 
@@ -514,9 +515,13 @@ def client_execute(ip, port):
             print(f"Saved: {full}")
 
         else:
-            leng = int(s.recv(HEADER).decode().strip())
-            full = recv_all(s, leng)
-            print(full.decode("utf-8"))
+            leng = s.recv(HEADER).decode().strip()
+            try:
+           	 leng = int(leng)
+       	     full = recv_all(s, leng)
+        	    print(full.decode("utf-8"))
+        	except ValueError:
+        		print(leng.decode("utf-8"))
 
 
 def server_execute(port):
@@ -532,7 +537,10 @@ def server_execute(port):
                 length = conn.recv(HEADER).decode().strip()
                 if not length:
                     break
-                cmd = recv_all(conn, int(length)).decode()
+                try:
+                	cmd = recv_all(conn, int(length)).decode()
+                except ValueError:
+                	cmd = length
 
                 if cmd.startswith("upload "):
                     filename = Path(cmd[7:].strip()).name
