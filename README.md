@@ -3,6 +3,11 @@
 Educational NetCat-like tool written in Python for learning networking, sockets, and basic cybersecurity concepts.  
 Works on Linux and Termux (Android).
 
+```Owner
+تعبت في الاداة دي نيككك
+خلوا بالكم منها بقا
+ Enjoy
+```
 ---
 
 ## 📌 Features
