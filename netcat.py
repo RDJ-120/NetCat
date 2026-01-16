@@ -132,7 +132,7 @@ if args.cmd == "chat":
 		names = []
 
 		if args.putpassword:
-			password = toolkit.prompt([("class:regular","Enter "), ("class:regular", "Chat's"), ("class:regular", "password:    ")], is_password=True, style=style, history=serv)
+			password = toolkit.prompt([("class:regular","Enter "), ("class:regular", "Chat's "), ("class:regular", "password:    ")], is_password=True, style=style, history=serv)
 			password = hashpass(password)
 		else:
 			password = None
@@ -146,22 +146,22 @@ if args.cmd == "chat":
 				data += packet
 			return data
 
-		def broadcast(name, msg, sender_conn):
-			msg = msg.encode("utf-8")
-			name = name.encode("utf-8")
-			name_length = str(len(name)).encode("utf-8")
-			name_length += b' ' * (NAME - len(name_length))
-			length = str(len(msg)).encode("utf-8")
-			length += b' ' * (HEADER - len(length))
-			for client in clients:
-				if client != sender_conn:
-					try:
-						client.sendall(name_length)
-						client.sendall(name)
-						client.sendall(length)
-						client.sendall(msg)
-					except:
-						c.print(f"[red]Failed to send data to {client}")
+		def broadcast(name, msg, sender_conn=None):
+    		msg = msg.encode("utf-8")
+   		 name = name.encode("utf-8")
+
+  		  name_length = str(len(name)).encode().ljust(NAME)
+  		  msg_length = str(len(msg)).encode().ljust(HEADER)
+
+    		for client in clients:
+     		   if client != sender_conn:
+      		      try:
+         		       client.sendall(name_length)
+        		        client.sendall(name)
+      		          client.sendall(msg_length)
+      		          client.sendall(msg)
+      		      except:
+            		    pass
 
 		def handle(conn, addr, n):
 			clients.append(conn)
@@ -175,7 +175,8 @@ if args.cmd == "chat":
 				if not length:
 					break
 				length = int(length)
-				msg = recv_all(conn, length).decode("utf-8")
+				msg = recv_all(conn, length)
+				msg = msg.decode("utf-8")
 				if msg.endswith(DISCONNECT):
 					connected = False
 				else:
@@ -275,9 +276,8 @@ if args.cmd == "chat":
 
 		def send(msg):
 			msg = msg.encode("utf-8")
-			msg = enc(msg)
 			length = str(len(msg)).encode("utf-8")
-			length += b' ' * (HEADER - len(length))
+			length += b' '*(HEADER-len(length))
 			try:
 				client.sendall(length)
 				client.sendall(msg)
@@ -295,7 +295,7 @@ if args.cmd == "chat":
 					break
 				length = int(length)
 				msg = recv_all(client, length)
-				msg = dec(msg).decode("utf-8")
+				msg = msg.decode("utf-8")
 				print(f"[{name}]:\t{msg}")
 
 		threading.Thread(target=receive, daemon=True).start()
