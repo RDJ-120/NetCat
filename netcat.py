@@ -147,21 +147,19 @@ if args.cmd == "chat":
 			return data
 
 		def broadcast(name, msg, sender_conn=None):
-    		msg = msg.encode("utf-8")
-   		 name = name.encode("utf-8")
-
-  		  name_length = str(len(name)).encode().ljust(NAME)
-  		  msg_length = str(len(msg)).encode().ljust(HEADER)
-
-    		for client in clients:
-     		   if client != sender_conn:
-      		      try:
-         		       client.sendall(name_length)
-        		        client.sendall(name)
-      		          client.sendall(msg_length)
-      		          client.sendall(msg)
-      		      except:
-            		    pass
+			msg = msg.encode("utf-8")
+			name = name.encode("utf-8")
+			name_length = str(len(name)).encode().ljust(NAME)
+			msg_length = str(len(msg)).encode().ljust(HEADER)
+			for client in clients:
+			   if client != sender_conn:
+			     try:
+			     	client.sendall(name_length)
+			     	client.sendall(name)
+			     	client.sendall(msg_length)
+			     	client.sendall(msg)
+			     except:
+			     	pass
 
 		def handle(conn, addr, n):
 			clients.append(conn)
