@@ -3,11 +3,6 @@
 Educational NetCat-like tool written in Python for learning networking, sockets, and basic cybersecurity concepts.  
 Works on Linux and Termux (Android).
 
-```Owner
-تعبت في الاداة دي نيككك
-خلوا بالكم منها بقا
- Enjoy
-```
 ---
 
 ## 📌 Features
@@ -133,3 +128,11 @@ The file will be uploaded to the executed device and saved to home path
 This tool is for learning and testing only.
 Do NOT use on networks or devices you do not own or have permission to test.
 Some features may require storage permission on Android.
+
+```Warning
+It was fuckin' big, difficult tool
+If There is any error Contact me In Telegram At Username:
+@BEY0ND39
+
+Enjoy
+```
