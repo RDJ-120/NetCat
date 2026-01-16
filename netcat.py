@@ -517,8 +517,8 @@ def client_execute(ip, port):
         else:
             leng = s.recv(HEADER).decode().strip()
             try:
-           	 leng = int(leng)
-       	     full = recv_all(s, leng)
+            	leng = int(leng)
+       	        full = recv_all(s, leng)
         	    print(full.decode("utf-8"))
         	except ValueError:
         		print(leng.decode("utf-8"))
