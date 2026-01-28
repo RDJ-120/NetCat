@@ -149,7 +149,8 @@ if args.cmd == "chat":
 		def broadcast(name, msg, sender_conn=None):
 			msg = msg.encode("utf-8")
 			name = name.encode("utf-8")
-			name_length = str(len(name)).encode().ljust(NAME)
+			name_length = str(len(name)).encode("utf-8")
+			name_length += b' '*(NAME-len(name_length))
 			msg_length = str(len(msg)).encode("utf-8")
 			msg_length += b' '*(HEADER-len(msg_length))
 			for client in clients:
@@ -182,12 +183,11 @@ if args.cmd == "chat":
 					else:
 						print(f"[{name}]:\t{msg}")
 						broadcast(name, msg, conn)
-				except ValueError:
-					print(f"[{name}]:	{length}")
-					broadcast(name, length, conn)
+				except Exception as e:
+					print(e)
 			clients.remove(conn)
 			conn.close()
-			print(f"[ ! ] {n} Exited The Server..")
+			print(f"[ ! ] {name} Exited The Server..")
 
 		def start():
 			server.listen()
@@ -202,7 +202,7 @@ if args.cmd == "chat":
 					except:
 						c.print(f"[red]Something went wrong while receiving client {addr} name!")
 					if password:
-						pass_msg = "PASSWORD:\t".encode()
+						pass_msg = "PASSWORD:\t".encode("utf-8")
 						passed_length = str(len(pass_msg)).encode("utf-8")
 						passed_length += b' ' * (PASS - len(passed_length))
 						try:
@@ -218,6 +218,7 @@ if args.cmd == "chat":
 							if hashpass(sent_password) == password:
 								threading.Thread(target=handle, args=(conn, addr, n)).start()
 							else:
+								conn.sendall(b"[ * ] Wrong Password")
 								conn.close()
 						except:
 							c.print(f"[red]Something went wrong while receiving password data from client {addr}")
@@ -246,7 +247,7 @@ if args.cmd == "chat":
 
 		name_enc = name.encode("utf-8")
 		name_length = str(len(name_enc)).encode("utf-8")
-		name_length += b' ' * (NAME - len(name_length))
+		name_length += b' '*(NAME-len(name_length))
 		try:
 			client.send(name_length)
 			client.send(name_enc)
@@ -448,7 +449,8 @@ def recv_all(conn, length):
 
 def send_file(filepath, conn):
     size = filepath.stat().st_size
-    size_bytes = str(size).encode().ljust(128)
+    size_bytes = str(size).encode("utf-8")
+    size_bytes += b' '*(128-len(size_bytes))
     conn.sendall(size_bytes)
     with open(filepath, "rb") as f:
         while True:
@@ -496,14 +498,14 @@ def client_execute(ip, port):
             if file.exists():
                 send_file(file, s)
             else:
-                print("File not found")
+                print("[ * ] File not found")
 
         elif pure.startswith("take "):
-            dire = fullpath / "executed"
+            dire = fullpath.joinpath("executed")
             dire.mkdir(parents=True, exist_ok=True)
             file = Path(pure[5:].strip()).name
             full = dire / file
-            size = int(s.recv(128).decode().strip())
+            size = int(s.recv(128).decode("utf-8").strip())
             received = 0
             with open(full, "wb") as f:
                 while received < size:
@@ -512,16 +514,13 @@ def client_execute(ip, port):
                         break
                     f.write(data)
                     received += len(data)
-            print(f"Saved: {full}")
+            print(f"[ - ] Saved: {full}")
 
         else:
             leng = s.recv(HEADER).decode().strip()
-            try:
-            	leng = int(leng)
-       	        full = recv_all(s, leng)
-        	    print(full.decode("utf-8"))
-        	except ValueError:
-        		print(leng.decode("utf-8"))
+            leng = int(leng)
+            full = recv_all(s, leng)
+            print(full.decode("utf-8"))
 
 
 def server_execute(port):
@@ -534,18 +533,15 @@ def server_execute(port):
     def handle_client(conn, addr):
         try:
             while True:
-                length = conn.recv(HEADER).decode().strip()
+                length = conn.recv(HEADER).decode("utf-8").strip()
                 if not length:
                     break
-                try:
-                	cmd = recv_all(conn, int(length)).decode()
-                except ValueError:
-                	cmd = length
+                cmd = recv_all(conn, int(length)).decode("utf-8")
 
                 if cmd.startswith("upload "):
                     filename = Path(cmd[7:].strip()).name
                     file = cwd() / filename
-                    size = int(conn.recv(128).decode().strip())
+                    size = int(conn.recv(128).decode("utf-8").strip())
                     received = 0
                     with open(file, "wb") as f:
                         while received < size:
@@ -560,11 +556,13 @@ def server_execute(port):
                     if file.exists():
                         send_file(file, conn)
                     else:
-                        conn.sendall(str(0).encode().ljust(128))
+                        d = str(0).encode("utf-8")
+                        d += b' '*(128-len(d))
 
                 else:
-                    final = executer(cmd).encode()
-                    leng = str(len(final)).encode().ljust(HEADER)
+                    final = executer(cmd).encode("utf-8")
+                    leng = str(len(final)).encode("utf-8")
+                    leng += b' '*(128-len(leng))
                     conn.sendall(leng)
                     conn.sendall(final)
         finally:
