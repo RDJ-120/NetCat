@@ -1,17 +1,5 @@
-import argparse
-import socket
-import sys
-import subprocess
-import shlex
-import textwrap
-import re
-import os
-import shutil
-import base64
-import ipaddress
-import threading
-import platform
-import hashlib
+#!/usr/bin/env python3
+import argparse, socket, sys, subprocess, shlex, textwrap, re, os, shutil, base64, ipaddress, threading, platform, hashlib
 from pathlib import Path
 from rich.console import Console
 from rich import traceback
@@ -19,7 +7,7 @@ import prompt_toolkit as toolkit
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
 from prompt_toolkit.completion import WordCompleter
-
+from concurrent.futures import ThreadPoolExecutor
 
 def cwd():
     system = platform.system()
@@ -59,8 +47,8 @@ chat.add_argument("-p", "--port", type=int, required=True)
 chat.add_argument("-pp", "--putpassword", action="store_true")
 
 scan = sub.add_parser("scan")
+scan.add_argument("ipaddress")
 scan.add_argument("-a", "--all", action="store_true")
-scan.add_argument("-ip", "--ipaddress")
 
 fs = sub.add_parser("filesend")
 
@@ -91,15 +79,81 @@ execute.add_argument("-p", "--port", type=int)
 
 args = parser.parse_args()
 
+common_ports = {
+    20:  {"service": "FTP-Data",     "description": "File Transfer Protocol (data transfer)"},
+    21:  {"service": "FTP-Control",  "description": "File Transfer Protocol (control)"},
+    22:  {"service": "SSH",          "description": "Secure Shell (remote login)"},
+    23:  {"service": "Telnet",       "description": "Unencrypted remote login"},
+    25:  {"service": "SMTP",         "description": "Simple Mail Transfer Protocol"},
+    53:  {"service": "DNS",          "description": "Domain Name System"},
+    67:  {"service": "DHCP-Server",  "description": "Dynamic Host Configuration Protocol (server)"},
+    68:  {"service": "DHCP-Client",  "description": "Dynamic Host Configuration Protocol (client)"},
+    69:  {"service": "TFTP",         "description": "Trivial File Transfer Protocol"},
+    80:  {"service": "HTTP",         "description": "HyperText Transfer Protocol"},
+    110: {"service": "POP3",         "description": "Post Office Protocol v3"},
+    119: {"service": "NNTP",         "description": "Network News Transfer Protocol"},
+    123: {"service": "NTP",          "description": "Network Time Protocol"},
+    137: {"service": "NetBIOS-NS",   "description": "NetBIOS Name Service"},
+    138: {"service": "NetBIOS-DGM",  "description": "NetBIOS Datagram Service"},
+    139: {"service": "NetBIOS-SSN",  "description": "NetBIOS Session Service"},
+    143: {"service": "IMAP",         "description": "Internet Message Access Protocol"},
+    161: {"service": "SNMP",         "description": "Simple Network Management Protocol"},
+    179: {"service": "BGP",          "description": "Border Gateway Protocol"},
+    389: {"service": "LDAP",         "description": "Lightweight Directory Access Protocol"},
+    443: {"service": "HTTPS",        "description": "HTTP Secure (SSL/TLS)"},
+    445: {"service": "SMB",          "description": "Server Message Block"},
+    465: {"service": "SMTPS",        "description": "Secure SMTP"},
+    500: {"service": "ISAKMP",       "description": "IPSec Key Management"},
+    587: {"service": "SMTP-Submission","description": "Mail submission port"},
+    636: {"service": "LDAPS",        "description": "Secure LDAP"},
+    993: {"service": "IMAPS",        "description": "Secure IMAP"},
+    995: {"service": "POP3S",        "description": "Secure POP3"},
+    1433: {"service": "MSSQL",       "description": "Microsoft SQL Server"},
+    1521: {"service": "Oracle-DB",   "description": "Oracle Database"},
+    2049: {"service": "NFS",         "description": "Network File System"},
+    2082: {"service": "cPanel",      "description": "cPanel (HTTP)"},
+    2083: {"service": "cPanel-SSL",  "description": "cPanel (HTTPS)"},
+    2086: {"service": "WHM",         "description": "Web Host Manager (HTTP)"},
+    2087: {"service": "WHM-SSL",     "description": "Web Host Manager (HTTPS)"},
+    3306: {"service": "MySQL",       "description": "MySQL Database"},
+    3389: {"service": "RDP",         "description": "Remote Desktop Protocol"},
+    5432: {"service": "PostgreSQL",  "description": "PostgreSQL Database"},
+    5900: {"service": "VNC",         "description": "Virtual Network Computing"},
+    6379: {"service": "Redis",       "description": "Redis Database"},
+    8080: {"service": "HTTP-Alt",    "description": "Alternative HTTP port"},
+    8443: {"service": "HTTPS-Alt",   "description": "Alternative HTTPS port"},
+}
+
 def scan_port(ip, port):
-	try:
-		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		s.settimeout(2)
-		if s.connect_ex((ip, port)) == 0:
-			c.print(f"[bold green][ [bold cyan]{ip} [bold green]] Status:\t[bold cyan]Open \t\t[bold green]Port:\t[bold cyan]{port}")
-	except socket.timeout:
-		c.print(f"[bold green][ [bold cyan]{ip} [bold green]] Status:\t[bold cyan]Filtered \t\t[bold green]Port:\t[bold cyan]{port}")
-	s.close()
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(2)
+            result = s.connect_ex((ip, port))
+
+            info = common_ports.get(
+                port,
+                {"service": "Unknown", "description": "No description"}
+            )
+
+            if result == 0:
+                status = "[bold green]Open"
+            else:
+                status = "[bold red]Closed"
+            if status == "[bold green]Open":
+                c.print(
+                f"[bold white][ [bold cyan]{ip} [bold white]] "
+                f"Status: {status:<5}   "
+                f"[bold white] -   Port: [bold cyan]{port:<5} "
+                f"[bold white] -   Service: [blue]{info['service']:<10} "
+                f"[bold white] -   Description: [magenta]{info['description']}"
+            )
+
+    except socket.timeout:
+        c.print(
+            f"[bold green][ [bold cyan]{ip} [bold green]] "
+            f"Status: [bold yellow]Filtered "
+            f"[bold green]Port: [bold cyan]{port}"
+        )
 
 def hashpass(password):
 	hashed = hashlib.sha512(password.encode("utf-8")).hexdigest()
@@ -161,7 +215,8 @@ if args.cmd == "chat":
 			     	client.sendall(msg_length)
 			     	client.sendall(msg)
 			     except:
-			     	pass
+			        client.close()
+			        pass
 
 		def handle(conn, addr, n):
 			clients.append(conn)
@@ -202,7 +257,7 @@ if args.cmd == "chat":
 					except:
 						c.print(f"[red]Something went wrong while receiving client {addr} name!")
 					if password:
-						pass_msg = "PASSWORD:\t".encode("utf-8")
+						pass_msg = "PASSWORD:".encode("utf-8")
 						passed_length = str(len(pass_msg)).encode("utf-8")
 						passed_length += b' ' * (PASS - len(passed_length))
 						try:
@@ -225,7 +280,8 @@ if args.cmd == "chat":
 					else:
 						threading.Thread(target=handle, args=(conn, addr, n)).start()
 				except Exception:
-					pass
+				    conn.close()
+				    pass
 
 		print("[ + ] Server is starting...")
 		start()
@@ -312,38 +368,24 @@ if args.cmd == "chat":
 				break
 
 if args.cmd == "scan":
-	ports = range(1, 6000)
+
+	ports = range(1, 60000)
 
 	if args.all:
 		network = ipaddress.IPv4Network(str(args.ipaddress))
 		hosts = list(network.hosts())
 		for ip in hosts:
-			max_threads = 50
-			threadings = []
-			for port in ports:
-				t = threading.Thread(target=scan_port, args=(str(ip), port))
-				t.start()
-				threadings.append(t)
-				if len(threadings) >= max_threads:
-					for th in threadings:
-						th.join()
-					threadings = []
-			for th in threadings:
-				th.join()
+			max_threads = 100
+			with ThreadPoolExecutor(max_workers=max_threads) as executor:
+				for port in ports:
+					executor.submit(scan_port, str(ip), port)
 	else:
 		ip = args.ipaddress
-		max_threads = 50
-		threadings = []
-		for port in ports:
-			t = threading.Thread(target=scan_port, args=(ip, port))
-			t.start()
-			threadings.append(t)
-			if len(threadings) >= max_threads:
-				for th in threadings:
-					th.join()
-				threadings = []
-		for th in threadings:
-			th.join()
+		max_threads = 100
+		with ThreadPoolExecutor(max_workers=max_threads) as executor:
+			for port in ports:
+				executor.submit(scan_port, ip, port)
+				
 
 def sendfile(filepath, ADDR):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -488,7 +530,7 @@ def client_execute(ip, port):
     while True:
         cmd = input(">> ").encode("utf-8")
         pure = cmd.decode("utf-8")
-        length = str(len(cmd)).encode()
+        length = str(len(cmd)).encode("utf-8")
         length += b' '*(HEADER-len(length))
         s.sendall(length)
         s.sendall(cmd)
@@ -517,7 +559,7 @@ def client_execute(ip, port):
             print(f"[ - ] Saved: {full}")
 
         else:
-            leng = s.recv(HEADER).decode().strip()
+            leng = s.recv(128).decode().strip()
             leng = int(leng)
             full = recv_all(s, leng)
             print(full.decode("utf-8"))
